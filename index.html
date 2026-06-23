@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>语音断语工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 24px;
+    color: #333;
+  }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+  header {
+    padding: 28px 32px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+  }
+  header h1 { font-size: 22px; margin-bottom: 6px; }
+  header p { font-size: 13px; opacity: 0.9; }
+  .content { padding: 28px 32px; }
+  .row { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  label { font-size: 13px; color: #555; font-weight: 500; min-width: 90px; }
+  input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 14px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus { outline: none; border-color: #667eea; }
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+    color: #fff;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: #667eea; }
+  .btn-primary:hover { box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+  .btn-danger { background: #ef4444; }
+  .btn-danger:hover { box-shadow: 0 4px 12px rgba(239,68,68,0.4); }
+  .btn-secondary { background: #6b7280; }
+  .btn-secondary:hover { box-shadow: 0 4px 12px rgba(107,114,128,0.4); }
+  .btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+  .status {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    background: #f0f0f0;
+    color: #666;
+  }
+  .status.active { background: #fee2e2; color: #b91c1c; animation: pulse 1.5s infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    margin: 20px 0 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    padding: 14px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    line-height: 1.7;
+    resize: vertical;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { outline: none; border-color: #667eea; }
+  .result-box {
+    background: #f8fafc;
+    border-left: 4px solid #667eea;
+    padding: 16px;
+    border-radius: 0 8px 8px 0;
+    margin-top: 8px;
+    min-height: 60px;
+    white-space: pre-wrap;
+    line-height: 1.8;
+    font-size: 15px;
+  }
+  .hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 6px;
+  }
+  .stats {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #888;
+  }
+  .stats span strong { color: #333; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎙️ 语音断语工具</h1>
+      <p>用自定义短语（如"完毕"）终止语音输入，自动整理标点与断句</p>
+    </header>
+
+    <div class="content">
+      <div class="row">
+        <label>停止词：</label>
+        <input type="text" id="stopWord" value="完毕" placeholder="例如：完毕 / 结束 / stop" />
+        <span id="status" class="status">未开始</span>
+      </div>
+
+      <div class="row">
+        <button class="btn btn-primary" id="startBtn">开始录音</button>
+        <button class="btn btn-danger" id="stopBtn" disabled>手动停止</button>
+        <button class="btn btn-secondary" id="clearBtn">清空</button>
+      </div>
+
+      <div class="section-title">
+        <span>实时识别结果（包含停止词）</span>
+      </div>
+      <textarea id="rawOutput" placeholder="点击「开始录音」后，识别的文字会实时显示在这里…"></textarea>
+
+      <div class="section-title">
+        <span>优化后最终内容（去掉停止词 + 断句标点）</span>
+        <button class="btn btn-secondary" id="copyBtn" style="padding: 6px 14px; font-size: 12px;">复制</button>
+      </div>
+      <div id="finalOutput" class="result-box">等待语音输入…</div>
+
+      <div class="stats">
+        <span>原始字数：<strong id="rawCount">0</strong></span>
+        <span>优化后字数：<strong id="finalCount">0</strong></span>
+      </div>
+
+      <p class="hint">提示：需使用 Chrome/Edge 浏览器，并允许麦克风权限。停止词须完整说出口才会触发结束。</p>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    alert('当前浏览器不支持语音识别。请使用最新版 Chrome 或 Edge。');
+    document.getElementById('startBtn').disabled = true;
+    return;
+  }
+
+  const stopWordInput = document.getElementById('stopWord');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const rawOutput = document.getElementById('rawOutput');
+  const finalOutput = document.getElementById('finalOutput');
+  const statusEl = document.getElementById('status');
+  const rawCount = document.getElementById('rawCount');
+  const finalCount = document.getElementById('finalCount');
+
+  let recognition = null;
+  let isListening = false;
+  let finalText = '';
+
+  function setStatus(text, active) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle('active', !!active);
+  }
+
+  function updateCounts() {
+    rawCount.textContent = rawOutput.value.replace(/\s/g, '').length;
+    finalCount.textContent = finalOutput.textContent.replace(/\s/g, '').length;
+  }
+
+  function containsStopWord(text, word) {
+    if (!word) return false;
+    return text.indexOf(word) !== -1;
+  }
+
+  function optimizeText(text, stopWord) {
+    if (!text) return '';
+    let t = text;
+
+    if (stopWord) {
+      const idx = t.lastIndexOf(stopWord);
+      if (idx !== -1) t = t.substring(0, idx);
+    }
+
+    t = t.replace(/\s+/g, '');
+
+    // 在常见语气词后插入句末标点（若后面已有标点则跳过）
+    const endWords = ['了', '吧', '呢', '啊', '哦', '吗', '嘛', '啦', '喽', '呗', '也罢', '也好'];
+    let result = '';
+    let i = 0;
+    while (i < t.length) {
+      const ch = t[i];
+      result += ch;
+
+      // 检查是否紧跟常见标点
+      const next = t[i + 1] || '';
+      const isPunct = /[。！？.!?,，、；；:："'"'（）\[\]【】《》…—]/.test(next);
+
+      if (!isPunct) {
+        // 尝试匹配较长的结束词优先
+        let matched = '';
+        for (const w of endWords) {
+          if (t.substring(i - w.length + 1, i + 1) === w && (i + 1 >= w.length)) {
+            matched = w;
+            break;
+          }
+        }
+        // 简化：仅检查当前字是否为单字语气词
+        if (['了', '吧', '呢', '啊', '哦', '吗', '嘛', '啦', '喽', '呗'].includes(ch)) {
+          // 若后面是中文/字母，视作句中 → 不加；若后面为空或是数字/空格/下一句起头 → 加句号
+          if (i === t.length - 1) {
+            result += '。';
+          }
+        }
+      }
+      i++;
+    }
+
+    // 常见口语停顿词 → 逗号：少量替换，避免过度标点
+    // 在 "然后"、"所以"、"不过"、"但是"、"而且"、"于是" 之前添加逗号（非开头处）
+    const pauseBefore = ['然后', '所以', '不过', '但是', '而且', '于是', '接着', '之后', '后来', '另外', '还有'];
+    for (const w of pauseBefore) {
+      const re = new RegExp('([^，。！？])(' + w + ')', 'g');
+      result = result.replace(re, '$1，$2');
+    }
+
+    // 句末若没有标点，添加句号
+    if (result && !/[。！？.!?…]$/.test(result)) {
+      result += '。';
+    }
+
+    return result;
+  }
+
+  function createRecognition() {
+    const r = new SR();
+    r.lang = 'zh-CN';
+    r.continuous = true;
+    r.interimResults = true;
+
+    r.onstart = () => {
+      isListening = true;
+      setStatus('● 正在聆听…', true);
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    };
+
+    r.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        const transcript = res[0].transcript;
+        if (res.isFinal) {
+          finalText += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      const combined = finalText + interim;
+      rawOutput.value = combined;
+      finalOutput.textContent = optimizeText(combined, stopWordInput.value.trim());
+      updateCounts();
+
+      if (containsStopWord(combined, stopWordInput.value.trim())) {
+        stopRecording();
+      }
+    };
+
+    r.onerror = (e) => {
+      setStatus('错误：' + e.error, false);
+    };
+
+    r.onend = () => {
+      isListening = false;
+      setStatus('已停止', false);
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+
+    return r;
+  }
+
+  function startRecording() {
+    finalText = '';
+    rawOutput.value = '';
+    finalOutput.textContent = '聆听中…';
+    recognition = createRecognition();
+    try {
+      recognition.start();
+    } catch (e) {
+      setStatus('启动失败', false);
+    }
+  }
+
+  function stopRecording() {
+    if (recognition && isListening) {
+      try { recognition.stop(); } catch (e) {}
+    }
+  }
+
+  startBtn.addEventListener('click', startRecording);
+  stopBtn.addEventListener('click', stopRecording);
+  clearBtn.addEventListener('click', () => {
+    finalText = '';
+    rawOutput.value = '';
+    finalOutput.textContent = '等待语音输入…';
+    updateCounts();
+  });
+  copyBtn.addEventListener('click', () => {
+    const text = finalOutput.textContent;
+    if (!text || text === '等待语音输入…' || text === '聆听中…') return;
+    navigator.clipboard.writeText(text).then(() => {
+      const old = copyBtn.textContent;
+      copyBtn.textContent = '已复制 ✓';
+      setTimeout(() => { copyBtn.textContent = old; }, 1500);
+    });
+  });
+
+  stopWordInput.addEventListener('input', () => {
+    if (rawOutput.value) {
+      finalOutput.textContent = optimizeText(rawOutput.value, stopWordInput.value.trim());
+      updateCounts();
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "vtable-browser-debugger-assistant": {
+      "source": "VisActor/VTable",
+      "sourceType": "github",
+      "skillPath": "skills/vtable-browser-debugger-assistant/SKILL.md",
+      "computedHash": "99f670d860faab9945a13f1ea79ef48782134ba2d1936ed99c2b9559178ff657"
+    },
+    "vtable-development-assistant": {
+      "source": "VisActor/VTable",
+      "sourceType": "github",
+      "skillPath": "skills/vtable-development-assistant/SKILL.md",
+      "computedHash": "6f24fceb32b7d460587ed0c8e93c643e969e8102a0a791e0880ad692af07e79a"
+    }
+  }
+}

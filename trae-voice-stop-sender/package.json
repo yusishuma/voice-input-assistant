@@ -1,0 +1,157 @@
+{
+  "name": "voice-stop-sender",
+  "displayName": "语音断语发送",
+  "description": "语音断语发送到AI对话。启动自动开启唤醒监听；录音完毕后自动粘贴到AI对话输入框（macOS通过osascript触发Cmd+V，无需手动点发送）。",
+  "version": "1.9.0",
+  "publisher": "yusishuma",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "语音",
+    "voice",
+    "speech",
+    "麦克风",
+    "停止词",
+    "聊天",
+    "chat",
+    "语音输入",
+    "语音唤醒",
+    "vosk",
+    "python"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "*"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "voiceStopSender.start",
+        "title": "🎙 语音输入（说完停止词自动发送）",
+        "category": "VoiceStopSender"
+      },
+      {
+        "command": "voiceStopSender.stop",
+        "title": "⏹ 停止当前录音/唤醒",
+        "category": "VoiceStopSender"
+      },
+      {
+        "command": "voiceStopSender.configure",
+        "title": "设置停止词",
+        "category": "VoiceStopSender"
+      },
+      {
+        "command": "voiceStopSender.toggleWakeWord",
+        "title": "🔊 开启/关闭语音唤醒",
+        "category": "VoiceStopSender"
+      },
+      {
+        "command": "voiceStopSender.setWakeWord",
+        "title": "设置语音唤醒词",
+        "category": "VoiceStopSender"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "voiceStopSender.start",
+        "key": "ctrl+alt+v",
+        "mac": "alt+v",
+        "when": "!editorTextFocus"
+      },
+      {
+        "command": "voiceStopSender.stop",
+        "key": "escape",
+        "mac": "escape",
+        "when": "voiceStopSender.isRecording || voiceStopSender.isWakeListening"
+      },
+      {
+        "command": "voiceStopSender.toggleWakeWord",
+        "key": "ctrl+alt+shift+v",
+        "mac": "alt+shift+v"
+      },
+      {
+        "command": "voiceStopSender.configure",
+        "key": "ctrl+alt+,",
+        "mac": "alt+,"
+      }
+    ],
+    "configuration": {
+      "title": "Voice Stop Sender",
+      "properties": {
+        "voiceStopSender.stopWord": {
+          "type": "string",
+          "default": "完毕",
+          "description": "语音停止词。说出该词后立即停止录音并处理发送。"
+        },
+        "voiceStopSender.optimizeText": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否对识别后的文本进行标点/断句优化。"
+        },
+        "voiceStopSender.autoSend": {
+          "type": "boolean",
+          "default": true,
+          "description": "识别完毕后是否自动尝试发送到聊天面板。"
+        },
+        "voiceStopSender.language": {
+          "type": "string",
+          "default": "zh-CN",
+          "enum": ["zh-CN", "zh-HK", "zh-TW", "en-US", "en-GB", "ja-JP", "ko-KR"],
+          "description": "语音识别语言。"
+        },
+        "voiceStopSender.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "自定义 Python 解释器路径（留空则自动检测：python3 / python / py）。"
+        },
+        "voiceStopSender.silenceTimeout": {
+          "type": "number",
+          "default": 3.0,
+          "description": "静音超时（秒）。停止说话超过该时长后自动停止。设为 0 禁用。"
+        },
+        "voiceStopSender.maxSeconds": {
+          "type": "number",
+          "default": 60,
+          "description": "单次最长录音时长（秒）。"
+        },
+        "voiceStopSender.wakeWord": {
+          "type": "string",
+          "default": "小助小助",
+          "description": "语音唤醒词。连续监听时听到此词自动开始录音。建议选不易与其他词混淆的词。"
+        },
+        "voiceStopSender.wakeWordEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否启用语音唤醒（启动后自动开启，持续后台监听，会占用麦克风和CPU。"
+        },
+        "voiceStopSender.replacements": {
+          "type": "object",
+          "default": {
+            "小猪": "小助",
+            "小猪小猪": "小助小助",
+            "小猪小猪小": "小助小助",
+            "小竹": "小助",
+            "小竹小竹": "小助小助",
+            "小雨": "小助",
+            "小朱": "小助",
+            "小主人": "小助"
+          },
+          "description": "文本替换表（对象形式）。用于修复 Vosk 常见同音混淆。键是要替换的词，值是替换后的正确词。例如 {\"小猪\":\"小助\"}。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "echo 'ready'",
+    "package": "npx --yes @vscode/vsce package --no-yarn --allow-star-activation"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0"
+  }
+}
