@@ -86,20 +86,24 @@ function activate(context) {
     );
     context.subscriptions.push(
         vscode.commands.registerCommand(CMD_TOGGLE_WAKE, async () => {
-            if (isWakeListening) {
-                // 用户手动关闭唤醒：设置标记，阻止守护进程自动重启
+            // 强制关闭：无论 isWakeListening 标记是否为 true，都尝试杀掉唤醒进程并清状态
+            const reallyListening = isWakeListening || (wakeWordProcess && !wakeWordProcess.killed && wakeWordProcess.exitCode === null);
+            if (reallyListening) {
                 wakeManuallyStopped = true;
-                stopWakeWordListening();
-                vscode.window.showInformationMessage('🔕 已关闭语音唤醒（按 Option+Shift+V 可重新开启）');
+                const killed = forceStopWakeWordListening();
+                vscode.window.showInformationMessage(
+                    killed ? '🔕 已关闭语音唤醒（按 Option+Shift+V 可重新开启）'
+                           : '🔕 已关闭语音唤醒（按 Option+Shift+V 可重新开启）'
+                );
             } else {
                 if (isRecording) {
-                    vscode.window.showWarningMessage('正在录音中...');
+                    vscode.window.showWarningMessage('正在录音中，请稍后再开启唤醒...');
                     return;
                 }
-                // 用户手动开启：清除标记，启动监听
                 wakeManuallyStopped = false;
                 const ok = await startWakeWordListening();
                 if (ok) vscode.window.showInformationMessage(`👂 语音唤醒已开启（呼唤「${getWakeWord()}」开始录音）`);
+                else vscode.window.showErrorMessage('语音唤醒启动失败，请检查麦克风权限与 Python 依赖');
             }
         })
     );
@@ -351,7 +355,8 @@ async function startWakeWordListening() {
                     } else if (trimmed.startsWith('WAKE_DETECTED')) {
                         // 关键修复：录音前先记下"之前在监听唤醒"，录音结束后要重启
                         shouldRestartWake = true;
-                        try { child.kill('SIGTERM'); } catch (_) {}
+                        try { child.kill('SIGTERM'); setTimeout(() => { try { child.kill('SIGKILL'); } catch (_) {} }, 800); } catch (_) {}
+                        if (wakeWordProcess === child) wakeWordProcess = undefined;
                         isWakeListening = false;
                         vscode.commands.executeCommand('setContext', 'voiceStopSender.isWakeListening', false);
                         setStatusBarWakeIdle(wakeStatusBarItem);
@@ -366,9 +371,9 @@ async function startWakeWordListening() {
                     if (match) {
                         const heard = applyReplacements(match[1].trim());
                         if (heard.includes(wakeWord)) {
-                            // 关键修复：录音前先记下"之前在监听唤醒"
                             shouldRestartWake = true;
-                            try { child.kill('SIGTERM'); } catch (_) {}
+                            try { child.kill('SIGTERM'); setTimeout(() => { try { child.kill('SIGKILL'); } catch (_) {} }, 800); } catch (_) {}
+                            if (wakeWordProcess === child) wakeWordProcess = undefined;
                             isWakeListening = false;
                             vscode.commands.executeCommand('setContext', 'voiceStopSender.isWakeListening', false);
                             setStatusBarWakeIdle(wakeStatusBarItem);
@@ -395,12 +400,28 @@ async function startWakeWordListening() {
     });
 }
 
-function stopWakeWordListening(silent) {
-    if (wakeWordProcess) { try { wakeWordProcess.kill('SIGTERM'); } catch (_) {} wakeWordProcess = undefined; }
+// 强制关闭唤醒监听：先发 SIGTERM，800ms 后还活着就 SIGKILL；无论如何都立即复位 UI 状态
+function forceStopWakeWordListening() {
+    const proc = wakeWordProcess;
+    wakeWordProcess = undefined;
     isWakeListening = false;
     vscode.commands.executeCommand('setContext', 'voiceStopSender.isWakeListening', false);
     if (wakeStatusBarItem) setStatusBarWakeIdle(wakeStatusBarItem);
+
+    if (!proc) return true;
+    try {
+        if (proc.exitCode === null && !proc.killed) {
+            proc.kill('SIGTERM');
+            setTimeout(() => {
+                try { if (proc.exitCode === null) proc.kill('SIGKILL'); } catch (_) {}
+            }, 800);
+            return true;
+        }
+    } catch (_) {}
+    return true;
 }
+// 兼容旧调用
+function stopWakeWordListening(silent) { return forceStopWakeWordListening(); }
 
 // ============ 识别后的处理：先粘贴到 AI 对话，再开 Webview 预览 ============
 // 关键修复：Webview 会抢焦点，必须在粘贴完成后再打开
