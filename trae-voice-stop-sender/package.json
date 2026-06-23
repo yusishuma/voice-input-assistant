@@ -2,7 +2,7 @@
   "name": "voice-stop-sender",
   "displayName": "语音断语发送",
   "description": "语音断语发送到AI对话。启动自动开启唤醒监听；录音完毕后自动粘贴到AI对话输入框（macOS通过osascript触发Cmd+V，无需手动点发送）。",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "publisher": "yusishuma",
   "icon": "icon.png",
   "engines": {
