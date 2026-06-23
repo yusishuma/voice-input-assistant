@@ -1,4 +1,4 @@
-# 语音断语发送（Voice Stop Sender）—— Trae/VSCode 扩展
+# 语音输入助手（Voice Input Assistant）—— Trae/VSCode 扩展
 
 一个能让你**用语音在 Trae 聊天面板输入内容**的扩展：
 
