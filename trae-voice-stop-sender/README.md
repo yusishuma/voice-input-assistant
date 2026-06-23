@@ -1,185 +1,235 @@
-# 语音断语发送（Voice Stop Sender）—— Trae/VSCode 扩展
+# 语音输入助手（Voice Input Assistant）— Trae/VSCode 扩展
 
-一个能让你**用语音在 Trae 聊天面板输入内容**的扩展：
+**说话即输入**，内容自动粘贴到 AI 对话输入框。无需浏览器、无需 API key、**完全免费、完全离线**。
 
-1. **语音唤醒**：打开 Trae 后约 2 秒自动开启唤醒监听，说出「小助小助」即可开始录音；或点击状态栏 `🎙 语音` / 按 `Option+V`（Mac）/ `Ctrl+Alt+V`（Win/Linux）手动开始。
-2. **语音识别**：后台 Python 进程使用 **Vosk 国产离线语音识别引擎**（中文模型约 40MB，内置在扩展中，**无需用户下载**）。完全离线，完全免费，无需 API key。
-3. **停止词结束**：说出停止词（默认「完毕」）立即停止录音；也可在静音超时或达到最长录音时长后自动停止。
-4. **文本优化**：自动去除停止词、去掉空格、在「然后/所以/但是…」等连接词前加逗号、句末补句号；可配置同音词替换表（如「小猪」→「小助」）修复常见识别错误。
-5. **自动发送到 AI 对话**：优化后的文本自动写入剪贴板 → 自动尝试聚焦 AI 对话输入框 → 通过系统级模拟按键（macOS `osascript`、Windows PowerShell SendKeys）自动 `Cmd+V` / `Ctrl+V` 粘贴 → 随后弹出 Webview 面板展示识别结果（可编辑、可重新复制发送）。
-6. **唤醒自动恢复**：录音结束后约 2 秒**自动恢复唤醒监听**；唤醒进程意外退出也会被守护进程每 10 秒检查并重启；**只有手动关闭（`Option+Shift+V` 或处于唤醒监听状态下按 `Esc`）才真正停止**。
+- **语音唤醒**：默认「小助小助」，扩展启动后自动开启后台监听
+- **停止词结束**：默认「完毕」，说完即停止录音
+- **Vosk 离线识别**：内置中文模型，流式识别、响应即时
+- **文本优化**：自动标点、断句、同音词替换
+- **自动粘贴**：识别内容自动粘贴到 AI 对话输入框（macOS 通过 `osascript` 触发 Cmd+V）
+- **唤醒守护**：录音结束后自动恢复唤醒监听，进程异常退出会自动重启
 
 ---
 
-## 安装
+## 快速开始
 
-### 第一步：安装 Python 依赖（所有平台）
+### 1. 安装依赖
 
 ```bash
 pip3 install vosk sounddevice soundfile numpy
 ```
 
-- **Vosk**：国产开源离线语音识别引擎（中文识别准确、体积约 40MB）。
-- **sounddevice / soundfile**：跨平台录音库（支持 macOS / Windows / Linux）。
-- **numpy**：Vosk 的依赖。
+### 2. 安装扩展
 
-> 模型已内置在扩展的 `models/` 目录中，**无需用户下载**。
+在扩展市场搜索「语音输入助手」或 `yusishuma.voice-input-assistant` 安装。
 
-### 第二步：安装扩展
+### 3. 开始使用
 
-#### 方法 A：从扩展市场安装（推荐）
+```
+打开 Trae → 状态栏显示 "👂 唤醒"
 
-在 Trae/VSCode 扩展市场搜索「语音断语发送」或 `yusishuma.voice-stop-sender`，点击安装。
+方式 A（语音唤醒）: 说 "小助小助" → 🔴 开始聆听
+                   → 说你想输入的内容
+                   → 说 "完毕" 结束
+                   → 自动复制到剪贴板
+                   → 自动聚焦 AI 对话输入框
+                   → 自动粘贴（Cmd+V / Ctrl+V）
+                   → Webview 面板显示内容
+                   → 约 2 秒后自动恢复唤醒监听
 
-#### 方法 B：使用 `.vsix` 安装
+方式 B（手动录音）: 点击状态栏 "🎙 语音" 或按 Option+V
+                   → 后续流程同上
 
-```bash
-cd trae-voice-stop-sender
-npx --yes @vscode/vsce package --no-yarn --allow-star-activation
+方式 C（关闭唤醒）: 点击状态栏 "👂 唤醒" 或按 Option+Shift+V
+                   → 唤醒监听停止（不再后台占用麦克风）
+
+方式 D（停止录音）: 录音/唤醒监听中按 Esc
 ```
 
-生成 `voice-stop-sender-1.9.1.vsix` 后，在 Trae 中：
-- 左侧「扩展市场」→ 右上角 `···` →「从 VSIX 安装」→ 选择生成的 vsix 文件。
-
-### 第三步：麦克风权限
-
-首次录音时，macOS 会弹窗请求麦克风权限 → 点击「允许」。若被拒绝：
-- **macOS**：系统设置 → 隐私与安全性 → 麦克风 → 打开 Trae / Terminal 的开关。
-- **Windows**：设置 → 隐私 → 麦克风 → 允许桌面应用访问。
-
 ---
 
-## 使用
+## 快捷键一览
 
-### 核心操作
-
-| 操作 | 方式 |
+| 快捷键（macOS）| 功能 |
 |---|---|
-| **开始/停止录音** | 点击状态栏 `🎙 语音`，或按 `Option+V`（Mac）/ `Ctrl+Alt+V`（Win/Linux） |
-| **语音唤醒录音** | 唤醒监听开启时，说「小助小助」即可自动开始录音（状态栏显示 `👂 唤醒监听中`） |
-| **开启/关闭唤醒** | 点击状态栏 `👂 唤醒`，或按 `Option+Shift+V`（Mac）/ `Ctrl+Alt+Shift+V`（Win/Linux） |
-| **停止当前录音/唤醒** | 录音中或唤醒监听中按 `Esc` |
-| **设置停止词** | 命令面板 `> VoiceStopSender: 设置停止词`，或按 `Option+,`（Mac）/ `Ctrl+Alt+,`（Win/Linux） |
-| **设置唤醒词** | 命令面板 `> VoiceStopSender: 设置语音唤醒词` |
-
-### 录音流程
-
-1. 说「小助小助」→ 状态栏变为 `🔴 聆听中`，开始录音；
-2. 说出要发送的内容；
-3. 说「完毕」→ 录音停止；
-4. 文本自动复制到剪贴板 → 自动粘贴到 AI 对话输入框 → 面板显示识别结果。
-
-录音结束后约 **2 秒**，唤醒监听**自动恢复**（除非你手动关闭了唤醒）。
+| `Option+V` | 开始/停止语音输入 |
+| `Option+Shift+V` | 开启/关闭语音唤醒 |
+| `Option+,` | 设置停止词 |
+| `Esc` | 停止当前录音 / 唤醒监听 |
 
 ---
 
-## 配置项（设置 → Voice Stop Sender）
+## 核心功能
+
+### 🎯 语音唤醒（Wake Word）
+
+- 扩展启动后约 2 秒**自动开启**（`wakeWordEnabled: true`）
+- 默认唤醒词：**「小助小助」**（3–4 字，有辨识度）
+- 唤醒后立即切换到录音模式，录音结束后约 2 秒**自动恢复**唤醒
+- **守护进程**：每 10 秒检查一次，唤醒进程意外退出会自动重启
+- **仅手动关闭**才真正停止：`Option+Shift+V` 或唤醒状态下按 `Esc`
+- 可在设置中自定义唤醒词：`voiceStopSender.wakeWord`
+
+### 🎙 语音输入 & 停止词
+
+- 点击状态栏「🎙 语音」或按 `Option+V` 开始录音
+- **停止词「完毕」**：说出即停止录音并进入处理流程
+- 静音超时（默认 3 秒）：长时间不说话自动停止
+- 最长录音（默认 60 秒）：防止意外持续录音
+
+### 🔤 文本优化
+
+识别后的原始文本会经过以下处理：
+
+1. **截掉停止词**：移除「完毕」及后续内容
+2. **去除空白**：压缩多余空格
+3. **连接词加逗号**：在「然后/所以/但是/不过/因此/于是/另外/还有/同时/接着/随后」前插入逗号
+4. **句末补句号**：如果结尾没有标点符号，自动添加句号
+5. **同音词替换**：按配置表修复常见识别错误（如「小猪小猪」→「小助小助」）
+
+可通过 `voiceStopSender.optimizeText` 关闭优化。
+
+### 📋 自动发送到 AI 对话
+
+识别并优化后的文本会：
+
+1. **写入剪贴板**（保证内容可随时手动粘贴）
+2. **尝试聚焦 AI 聊天面板**（通过多个 VS Code 命令兜底）
+3. **执行系统级粘贴**
+   - macOS：`osascript` → 触发 `Cmd+V`
+   - Windows：PowerShell → `SendKeys('^v')`
+   - Linux：`editor.action.clipboardPasteAction`
+4. **打开 Webview 预览面板**：展示最终识别内容，可编辑、可重新复制
+
+> 💡 如果自动粘贴未成功，文本已在剪贴板中，只需点击 AI 对话输入框后按 `Cmd+V` / `Ctrl+V` 即可。
+
+---
+
+## 配置项
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `stopWord` | string | `"完毕"` | 停止词。说出该词后立即停止录音。 |
-| `wakeWord` | string | `"小助小助"` | 语音唤醒词。建议选不易与其他词混淆的 3–4 字词。 |
-| `wakeWordEnabled` | boolean | `true` | 是否启用语音唤醒（启动后自动开启，持续后台监听）。 |
-| `optimizeText` | boolean | `true` | 是否对识别后的文本进行标点/断句优化。 |
-| `replacements` | object | `{"小猪":"小助", "小猪小猪":"小助小助", ...}` | 文本替换表。用于修复 Vosk 常见同音混淆。键是要替换的词，值是替换后的正确词。支持多对。 |
-| `silenceTimeout` | number | `3.0` | 静音超时（秒）。停止说话超过该时长后自动停止。设为 `0` 禁用。 |
-| `maxSeconds` | number | `60` | 单次最长录音时长（秒）。 |
-| `pythonPath` | string | `""` | 自定义 Python 解释器路径（如 pyenv/conda 的路径）。留空自动检测 `python3` / `python` / `py`。 |
+| `voiceStopSender.stopWord` | string | `"完毕"` | 停止词。说出该词后立即停止录音，内容将被优化并发送。 |
+| `voiceStopSender.wakeWord` | string | `"小助小助"` | 语音唤醒词。默认启动后自动在后台监听，听到此词即开始录音。 |
+| `voiceStopSender.wakeWordEnabled` | boolean | `true` | 是否启用语音唤醒。启用后启动即自动监听；仅手动关闭才真正停止。 |
+| `voiceStopSender.optimizeText` | boolean | `true` | 是否对识别文本进行标点/断句优化。 |
+| `voiceStopSender.replacements` | object | 详见下方 | 同音词替换表。键为要替换的词，值为正确词。 |
+| `voiceStopSender.silenceTimeout` | number | `3.0` | 静音超时（秒）。停止说话超过该时长自动停止。设为 0 禁用。 |
+| `voiceStopSender.maxSeconds` | number | `60` | 单次最长录音时长（秒）。防止忘记说停止词。 |
+| `voiceStopSender.pythonPath` | string | `""` | 自定义 Python 解释器路径。留空自动检测 `python3` / `python` / `py`。 |
+
+**默认同音词替换表**：
+
+```json
+{
+  "小猪": "小助",
+  "小猪小猪": "小助小助",
+  "小猪小猪小": "小助小助",
+  "小竹": "小助",
+  "小竹小竹": "小助小助",
+  "小雨": "小助",
+  "小朱": "小助",
+  "小主人": "小助"
+}
+```
+
+---
+
+## 状态栏图标说明
+
+| 图标 | 含义 | 点击操作 |
+|---|---|---|
+| `🎙 语音` | 空闲中，可开始录音 | 开始语音输入 |
+| `🔴 聆听中` | 正在录音中 | 停止录音 |
+| `✈ 发送中` | 正在发送到 AI 对话 | — |
+| `👂 唤醒` | 唤醒监听已关闭 | 开启语音唤醒 |
+| `👂 唤醒中` | 唤醒监听运行中 | 关闭语音唤醒 |
 
 ---
 
 ## 技术要点
 
-### 录音与识别流程
-
-扩展启动后（`*` 激活，启动即激活），Python 子进程 `voice_listener.py` 以 `--mode wake` 模式启动唤醒监听。唤醒后切换为录音模式（不带 `--mode wake`）：
-
-1. **录音**：`sounddevice` 从默认麦克风捕获 16kHz PCM 音频流。
-2. **识别**：送入 Vosk 的 `KaldiRecognizer` 做离线实时识别（流式，无需等待整段结束）。
-3. **停止词检测**：每次 `AcceptWaveform()` 返回结果时检查识别文本是否包含停止词，命中即结束进程。
-4. **静音超时**：超过 `silenceTimeout` 秒没有新识别内容自动停止（避免长时间空录音）。
-5. **文本优化**：纯本地 JS，不依赖大模型。做以下几件事：
-   - 截掉停止词及之后的内容；
-   - 去除所有空白；
-   - 在「然后/所以/不过/但是/而且/于是/接着/之后/后来/另外/还有/因此/同时/随后」等连接词前插入逗号；
-   - 句末补句号。
-6. **同音词替换**：根据 `replacements` 配置表对识别文本做关键词替换，修复 Vosk 常见的同音混淆（如「小猪小猪」→「小助小助」）。
-
-### 发送到 AI 对话面板
-
-由于 Trae/VSCode 没有公开把文本写入聊天输入框的正式 API，扩展采用多层兜底策略（**先粘贴后开 Webview，避免 Webview 抢焦点**）：
+### 架构概览
 
 ```
-录音结束 → 文本优化 → 写入剪贴板
-    → 尝试多个聚焦命令（workbench.action.chat.focus / open / new / openInSidebar 等）
-    → 等待焦点转移 → 执行系统级模拟粘贴
-        macOS:   osascript → Cmd+V
-        Windows: PowerShell → SendWait('^v')
-        Linux:   editor.action.clipboardPasteAction
-    → 300ms 后打开 Webview 面板展示识别结果（可编辑、可重新复制）
+扩展主进程 (Node.js / extension.js)
+    ├── 状态栏 UI (2 个按钮：录音 + 唤醒)
+    ├── 命令注册（开始 / 停止 / 设置）
+    ├── 快捷键绑定（Option+V / Option+Shift+V / Esc / Option+,）
+    ├── Python 子进程管理（录音进程 + 唤醒进程）
+    ├── 文本优化 + 替换逻辑
+    └── Webview 面板（结果预览）
+
+子进程 (Python)
+    ├── sounddevice：跨平台麦克风输入（16kHz PCM）
+    └── vosk：离线语音识别（流式，无需联网）
+        └── 内置中文模型：vosk-model-small-cn-0.22（约 40MB）
+
+系统集成
+    ├── macOS：osascript 模拟键盘事件 Cmd+V
+    ├── Windows：PowerShell SendKeys ^v
+    └── Linux：VS Code paste 命令
 ```
 
-> **macOS 的关键技巧**：用 `osascript` 触发键盘事件，文本可以粘贴到 Webview 内部的 `textarea`（VS Code API 的 `type` 命令做不到这一点）。
-
-### 唤醒守护进程
-
-为了让唤醒监听**始终保持可用**（除非用户手动关闭），扩展在 `activate()` 中注册了一个每 10 秒检查一次的守护进程：
+### 唤醒守护机制
 
 ```
-每 10 秒检查：
-    不在录音 且 不在唤醒监听 且 未被手动关闭 且 配置开启 → 重启唤醒
+扩展激活
+  └─ 延迟 2 秒 → startWakeWordListening()
+       └─ Python 进程监听麦克风，等待唤醒词
+            └─ 检测到 "小助小助" → kill 唤醒进程 → startVoiceInput()
+                 └─ Python 进程录音，等待 "完毕"
+                      └─ 文本优化 → 复制到剪贴板 → 聚焦 → 粘贴
+                           └─ 2 秒后 → startWakeWordListening() [自动恢复]
+
+守护进程（每 10 秒检查）：
+  if (不在录音 && 不在唤醒监听 && 未手动关闭 && 配置开启) → 重启唤醒
 ```
 
-录音开始时会临时停止唤醒监听（避免麦克风冲突），录音结束后约 2 秒自动恢复。手动关闭唤醒（`Option+Shift+V` 或唤醒监听中按 `Esc`）会设置 `wakeManuallyStopped = true` 标记，守护进程不再自动重启。
+### 为什么不用 Web Speech API？
 
-### 文件结构
+- **权限限制**：Trae 的 Webview 环境不支持 `SpeechRecognition`
+- **依赖浏览器**：需要打开浏览器窗口，体验割裂
+- **方案优势**：直接调系统 Python + Vosk，权限由系统统一管理，**完全离线、零延迟、零成本**
+
+---
+
+## 文件结构
 
 ```
-trae-voice-stop-sender/
-├── package.json         # 扩展元信息、命令、配置、快捷键
-├── voice_listener.py    # Python 录音 + Vosk 识别脚本（核心引擎）
-├── icon.png             # 扩展图标（麦克风）
-├── README.md            # 本文件
-├── LICENSE.txt          # MIT 许可证
-├── models/              # 内置 Vosk 中文模型（约 40MB，无需下载）
+voice-input-assistant/
+├── package.json          # 扩展元信息、命令、配置、快捷键
+├── voice_listener.py     # Python 录音 + Vosk 识别脚本（支持录音/唤醒两种模式）
+├── icon.png              # 扩展图标（麦克风）
+├── README.md             # 本文档
+├── models/               # 内置 Vosk 中文模型（约 40MB，无需下载）
 │   └── vosk-model-small-cn-0.22/
 └── src/
-    └── extension.js     # 主入口：状态栏、录音、唤醒、文本优化、发送到聊天、Webview 预览
+    └── extension.js      # 主入口：状态栏、进程管理、文本优化、自动粘贴、Webview
 ```
 
 ---
 
-## 排错
+## 常见问题
 
 | 问题 | 解决方法 |
 |---|---|
-| **提示缺少 Python 依赖** | 运行 `pip3 install vosk sounddevice soundfile numpy`，然后重启 Trae。 |
-| **提示未找到 Python** | 在扩展设置中设置 `voiceStopSender.pythonPath`，指向你的 Python 可执行文件（如 `/usr/local/bin/python3` 或 `C:\Python311\python.exe`）。 |
-| **麦克风权限被拒绝** | macOS：系统设置 → 隐私与安全性 → 麦克风 → 打开 Trae / Terminal 的开关。 |
-| **唤醒词经常被误识别为其他词** | 在 `replacements` 配置中添加同音词替换，或更换唤醒词为更长/更有辨识度的词。 |
-| **识别准确率不满意** | 中文小模型约 40MB，适合日常对话。如需更高准确率，可下载标准模型 `vosk-model-cn-0.22`（~1.3GB）放到扩展 `models/` 目录。 |
-| **自动粘贴未成功** | 文本已写入剪贴板，点击 AI 对话输入框后按 `Cmd+V`（Mac）/ `Ctrl+V`（Win/Linux）手动粘贴即可。也可在 Webview 面板点击「↺ 重新复制到剪贴板」再次尝试。 |
-| **唤醒监听没有自动开启** | 确认 `wakeWordEnabled` 为 `true`（默认开启）。扩展启动后约 2 秒自动开启，若麦克风被其他程序占用会延迟启动，守护进程每 10 秒会重试。 |
-
----
-
-## 为什么不用 Web Speech API？
-
-Web Speech API（`SpeechRecognition`）对浏览器/宿主环境有麦克风权限要求，而 Trae 的 Webview 不支持该 API 或在安全上下文中会被拒绝。为了提供**稳定、可预测**的语音输入体验，本扩展采用：
-
-1. **直接调系统 Python + Vosk**：权限由系统统一管理（macOS 权限弹窗、Windows 音频栈），不依赖 Electron 的 Webview 实现。
-2. **国产离线引擎**：Vosk 由 Alpha Cephei 开发，完全离线运行，响应延迟低（流式识别），无需任何外部 API 调用，完全免费。
-3. **零浏览器依赖**：无需打开任何浏览器窗口，没有弹出新应用的切换成本。
+| **麦克风权限被拒绝** | macOS：系统设置 → 隐私与安全性 → 麦克风 → 打开 Terminal / Trae 的开关 |
+| **找不到 Python** | 运行 `python3 --version` 确认；或在设置中填写 `pythonPath` |
+| **缺少 Python 依赖** | 运行 `pip3 install vosk sounddevice soundfile numpy`，然后重启 Trae |
+| **唤醒词总是识别成其他词** | 在 `replacements` 配置中添加同音词替换；或更换为更长/更独特的唤醒词 |
+| **识别准确率不满意** | 小模型（40MB）适合日常对话。如需更高准确率，可下载标准模型 `vosk-model-cn-0.22`（~1.3GB）放到 `models/` 目录 |
+| **自动粘贴未成功** | 文本已写入剪贴板，点击 AI 对话输入框后按 `Cmd+V` / `Ctrl+V` 即可 |
+| **唤醒监听没有自动开启** | 确认 `wakeWordEnabled` 为 `true`；扩展启动后约 2 秒自动开启；守护进程每 10 秒检查重启 |
 
 ---
 
 ## 版本历史
 
-- **v1.9.0**：新增唤醒守护进程（每 10 秒检查自动恢复）；修复 `shouldRestartWake` 时序 bug（OR 逻辑避免被覆盖）；录音停止后的唤醒重启行为与手动关闭标记分离。
-- **v1.8.0**：先粘贴后开 Webview，避免焦点竞争导致粘贴失败；自动粘贴改为系统级 `osascript` / PowerShell 按键模拟。
-- **v1.7.x**：加入语音唤醒（`小助小助`）与同音词替换表。
-- **v1.6.x**：加入 Vosk 内置模型，解决模型下载慢问题。
-- **v1.5.x**：从 Web Speech API 切换为 Vosk + Python 方案，解决麦克风权限被拒问题。
-- **v1.4.x**：快捷键从 `Cmd+1` 改为 `Option+V`。
-- **v1.0–v1.3.x**：初始版本，基于 Web Speech API，支持停止词识别与文本优化。
-
+- **v2.0.0**：扩展改名为「语音输入助手」；全面重写 README；package.json 命令标题、配置描述更清晰易懂；状态栏提示文字优化
+- **v1.9.x**：新增唤醒守护进程，修复 `shouldRestartWake` 时序 bug
+- **v1.8.x**：先粘贴后开 Webview，避免焦点竞争
+- **v1.7.x**：加入语音唤醒与同音词替换表
+- **v1.6.x**：内置 Vosk 模型，无需用户下载
+- **v1.5.x**：从 Web Speech API 切换为 Vosk + Python 方案
+- **v1.4.x**：快捷键改为 `Option+V`

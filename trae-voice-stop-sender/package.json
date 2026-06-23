@@ -1,8 +1,8 @@
 {
-  "name": "voice-stop-sender",
-  "displayName": "语音断语发送",
-  "description": "语音断语发送到AI对话。启动自动开启唤醒监听；录音完毕后自动粘贴到AI对话输入框（macOS通过osascript触发Cmd+V，无需手动点发送）。",
-  "version": "1.9.1",
+  "name": "voice-input-assistant",
+  "displayName": "语音输入助手",
+  "description": "语音输入助手：说话即可输入内容到 AI 对话。支持语音唤醒（默认\"小助小助\"）、停止词结束录音（默认\"完毕\"）、Vosk 离线识别、自动优化标点和粘贴到聊天输入框。完全免费，无需 API key。",
+  "version": "2.0.0",
   "publisher": "yusishuma",
   "icon": "icon.png",
   "engines": {
@@ -17,11 +17,10 @@
     "voice",
     "speech",
     "麦克风",
-    "停止词",
-    "聊天",
-    "chat",
     "语音输入",
     "语音唤醒",
+    "AI对话",
+    "聊天助手",
     "vosk",
     "python"
   ],
@@ -33,28 +32,28 @@
     "commands": [
       {
         "command": "voiceStopSender.start",
-        "title": "🎙 语音输入（说完停止词自动发送）",
-        "category": "VoiceStopSender"
+        "title": "🎙 开始语音输入（说\"完毕\"结束）",
+        "category": "语音输入助手"
       },
       {
         "command": "voiceStopSender.stop",
         "title": "⏹ 停止当前录音/唤醒",
-        "category": "VoiceStopSender"
+        "category": "语音输入助手"
       },
       {
         "command": "voiceStopSender.configure",
-        "title": "设置停止词",
-        "category": "VoiceStopSender"
+        "title": "⚙ 设置停止词",
+        "category": "语音输入助手"
       },
       {
         "command": "voiceStopSender.toggleWakeWord",
-        "title": "🔊 开启/关闭语音唤醒",
-        "category": "VoiceStopSender"
+        "title": "👂 开启/关闭语音唤醒",
+        "category": "语音输入助手"
       },
       {
         "command": "voiceStopSender.setWakeWord",
-        "title": "设置语音唤醒词",
-        "category": "VoiceStopSender"
+        "title": "🎯 设置语音唤醒词",
+        "category": "语音输入助手"
       }
     ],
     "keybindings": [
@@ -82,53 +81,27 @@
       }
     ],
     "configuration": {
-      "title": "Voice Stop Sender",
+      "title": "语音输入助手",
       "properties": {
         "voiceStopSender.stopWord": {
           "type": "string",
           "default": "完毕",
-          "description": "语音停止词。说出该词后立即停止录音并处理发送。"
-        },
-        "voiceStopSender.optimizeText": {
-          "type": "boolean",
-          "default": true,
-          "description": "是否对识别后的文本进行标点/断句优化。"
-        },
-        "voiceStopSender.autoSend": {
-          "type": "boolean",
-          "default": true,
-          "description": "识别完毕后是否自动尝试发送到聊天面板。"
-        },
-        "voiceStopSender.language": {
-          "type": "string",
-          "default": "zh-CN",
-          "enum": ["zh-CN", "zh-HK", "zh-TW", "en-US", "en-GB", "ja-JP", "ko-KR"],
-          "description": "语音识别语言。"
-        },
-        "voiceStopSender.pythonPath": {
-          "type": "string",
-          "default": "",
-          "description": "自定义 Python 解释器路径（留空则自动检测：python3 / python / py）。"
-        },
-        "voiceStopSender.silenceTimeout": {
-          "type": "number",
-          "default": 3.0,
-          "description": "静音超时（秒）。停止说话超过该时长后自动停止。设为 0 禁用。"
-        },
-        "voiceStopSender.maxSeconds": {
-          "type": "number",
-          "default": 60,
-          "description": "单次最长录音时长（秒）。"
+          "description": "停止词。说出该词后立即停止录音，内容将被优化并发送到 AI 对话输入框。"
         },
         "voiceStopSender.wakeWord": {
           "type": "string",
           "default": "小助小助",
-          "description": "语音唤醒词。连续监听时听到此词自动开始录音。建议选不易与其他词混淆的词。"
+          "description": "语音唤醒词。默认启动后自动在后台监听，听到此词即开始录音。建议选择不易与日常用语混淆的 3–4 字词。"
         },
         "voiceStopSender.wakeWordEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "是否启用语音唤醒（启动后自动开启，持续后台监听，会占用麦克风和CPU。"
+          "description": "是否启用语音唤醒。启用后，扩展启动后会自动开启唤醒监听（持续后台监听，仅在录音时暂停），仅手动关闭才真正停止。"
+        },
+        "voiceStopSender.optimizeText": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否对识别后的文本进行标点/断句优化（去除空格、连接词前加逗号、句末补句号）。"
         },
         "voiceStopSender.replacements": {
           "type": "object",
@@ -142,7 +115,22 @@
             "小朱": "小助",
             "小主人": "小助"
           },
-          "description": "文本替换表（对象形式）。用于修复 Vosk 常见同音混淆。键是要替换的词，值是替换后的正确词。例如 {\"小猪\":\"小助\"}。"
+          "description": "同音词替换表。用于修复 Vosk 常见同音混淆。键是要替换的词，值是替换后的正确词。例如 {\"小猪\":\"小助\"}。"
+        },
+        "voiceStopSender.silenceTimeout": {
+          "type": "number",
+          "default": 3.0,
+          "description": "静音超时（秒）。停止说话超过该时长后自动停止录音。设为 0 禁用（仅靠停止词结束）。"
+        },
+        "voiceStopSender.maxSeconds": {
+          "type": "number",
+          "default": 60,
+          "description": "单次最长录音时长（秒）。防止忘记停止词导致持续录音。"
+        },
+        "voiceStopSender.pythonPath": {
+          "type": "string",
+          "default": "",
+          "description": "自定义 Python 解释器路径（留空则自动检测：python3 / python / py）。需已安装 vosk、sounddevice、soundfile、numpy。"
         }
       }
     }

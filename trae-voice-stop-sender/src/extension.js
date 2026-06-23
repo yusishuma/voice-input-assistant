@@ -1,9 +1,7 @@
 /**
- * 语音断语发送 — Trae 扩展（v1.8.0）
+ * 语音输入助手 — Trae 扩展（v2.0.0）
  *
- * 流程：
- *   启动 Trae → 自动开启唤醒监听（持续说 "小助小助" 开始录音）
- *   录音 → "完毕" → Webview 显示文本 → 自动复制到剪贴板 → 自动聚焦 AI 对话框 → Cmd+V 粘贴
+ * 功能：语音唤醒 → 语音识别 → 停止词结束 → 文本优化 → 粘贴到 AI 对话输入框
  *
  * macOS 关键技巧：用 osascript 发送键盘事件，能打到 Webview 里的 textarea（VS Code API 的 type 命令做不到）
  */
@@ -148,12 +146,12 @@ function deactivate() {
     if (chatPanel) { try { chatPanel.dispose(); } catch (_) {} chatPanel = undefined; }
 }
 
-// ============ 状态栏辅助 ============
+// ============ 状态栏辅助：用户可见文本统一
 function setStatusBarIdle(item) { item.text = '🎙 语音'; item.tooltip = '点击开始语音输入（Option+V）'; item.backgroundColor = undefined; }
-function setStatusBarRecording(item, heard) { item.text = '🔴 聆听中'; item.tooltip = '正在聆听...说「完毕」停止' + (heard ? `\n听到: ${heard}` : ''); }
-function setStatusBarSending(item, text) { item.text = '✈ 发送中'; item.tooltip = '正在发送到 AI 对话：' + (text || ''); }
+function setStatusBarRecording(item, heard) { item.text = '🔴 聆听中'; item.tooltip = '正在聆听，说"完毕"结束' + (heard ? '\n听到: ' + heard : ''); }
+function setStatusBarSending(item, text) { item.text = '✈ 发送中'; item.tooltip = '正在发送到 AI 对话' + (text ? ': ' + text : ''); }
 function setStatusBarWakeIdle(item) { item.text = '👂 唤醒'; item.tooltip = '点击开启语音唤醒（Option+Shift+V）'; }
-function setStatusBarWakeActive(item, heard) { item.text = '👂 唤醒监听中'; item.tooltip = '听到：「小助小助」会开始录音' + (heard ? `\n听到: ${heard}` : ''); }
+function setStatusBarWakeActive(item, heard) { item.text = '👂 唤醒中'; item.tooltip = '听到"小助小助"自动开始录音' + (heard ? '\n听到: ' + heard : ''); }
 
 // ============ 配置读取 ============
 function getStopWord() { return vscode.workspace.getConfiguration('voiceStopSender').get('stopWord') || '完毕'; }
